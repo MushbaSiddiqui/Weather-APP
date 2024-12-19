@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './Main.css';
 import { FaSearch, FaTint, FaWind, FaThermometerHalf } from 'react-icons/fa';
 
-const API_KEY =  process.env.REACT_APP_API_KEY;
-const BASE_URL = process.env.REACT_APP_API_URL;
+const API_KEY = process.env.REACT_APP_API_KEY;
+const BASE_URL = process.env.REACT_APP_API_URL || 'https://api.openweathermap.org/data/2.5';
+const GEO_API_URL = 'https://api.openweathermap.org/geo/1.0';
 
 const WEATHER_BACKGROUNDS = {
   Clear: require('../src/assets/videos/clear.mp4'),
@@ -103,8 +104,13 @@ const Main = () => {
     try {
       setLoading(true);
       const geoResponse = await fetch(
-        `http://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=1&appid=${API_KEY}`
+        `${GEO_API_URL}/direct?q=${encodeURIComponent(query)}&limit=1&appid=${API_KEY}`
       );
+      
+      if (!geoResponse.ok) {
+        throw new Error('Failed to fetch location data');
+      }
+      
       const geoData = await geoResponse.json();
 
       if (!geoData.length) {
