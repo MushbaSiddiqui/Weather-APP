@@ -33,6 +33,8 @@ const WEATHER_ICONS = {
   Wind: require('../src/assets/rain.gif'),
 };
 
+const COUNTRY_CODES = { US: 'USA', GB: 'UK', IN: 'India' }; // Add more as needed
+
 const Main = () => {
   const [currentWeather, setCurrentWeather] = useState(null);
   const [forecast, setForecast] = useState(null);
@@ -46,7 +48,7 @@ const Main = () => {
     video.src = videoSrc;
   };
 
-  const fetchWeatherData = async (lat, lon) => {
+  const fetchWeatherData = async (lat, lon, locationInfo = null) => {
     try {
       const [weatherResponse, forecastResponse] = await Promise.all([
         fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`),
@@ -58,6 +60,10 @@ const Main = () => {
 
       if (weatherData.cod !== 200 || forecastData.cod !== '200') {
         throw new Error(weatherData.message || forecastData.message);
+      }
+
+      if (locationInfo) {
+        weatherData.name = `${locationInfo.name}${locationInfo.state ? `, ${locationInfo.state}` : ''} ${COUNTRY_CODES[locationInfo.country] || locationInfo.country}`;
       }
 
       setCurrentWeather(weatherData);
@@ -88,14 +94,29 @@ const Main = () => {
     return forecastDays.slice(1, 7);
   };
 
-  const fetchWeatherByLocation = (position) => {
+  const fetchWeatherByLocation = async (position) => {
     const lat = position.coords.latitude;
     const lon = position.coords.longitude;
 
-    const weatherUrl = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-    const forecastUrl = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+    try {
+      const reverseGeoResponse = await fetch(
+        `${GEO_API_URL}/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+      );
+      
+      if (!reverseGeoResponse.ok) {
+        throw new Error('Failed to fetch location details');
+      }
 
-    fetchWeatherData(lat, lon);
+      const locationData = await reverseGeoResponse.json();
+      if (locationData.length > 0) {
+        await fetchWeatherData(lat, lon, locationData[0]);
+      } else {
+        await fetchWeatherData(lat, lon);
+      }
+    } catch (err) {
+      setError('Error fetching location details');
+      setLoading(false);
+    }
   };
 
   const fetchWeatherByCity = async () => {
@@ -104,7 +125,7 @@ const Main = () => {
     try {
       setLoading(true);
       const geoResponse = await fetch(
-        `${GEO_API_URL}/direct?q=${encodeURIComponent(query)}&limit=1&appid=${API_KEY}`
+        `${GEO_API_URL}/direct?q=${encodeURIComponent(query)}&limit=5&appid=${API_KEY}`
       );
       
       if (!geoResponse.ok) {
@@ -117,8 +138,12 @@ const Main = () => {
         throw new Error('City not found');
       }
 
-      const { lat, lon } = geoData[0];
-      await fetchWeatherData(lat, lon);
+      const mostRelevantLocation = geoData.find(location => 
+        location.name.toLowerCase() === query.toLowerCase()
+      ) || geoData[0];
+
+      const { lat, lon, country, state } = mostRelevantLocation;
+      await fetchWeatherData(lat, lon, mostRelevantLocation);
       setQuery('');
     } catch (err) {
       setError(err.message);
