@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './Main.css';
 import { FaSearch, FaTint, FaWind, FaThermometerHalf } from 'react-icons/fa';
 
-const API_KEY =  7c79ad7b5afad6d76fe4f91792104f82;
-const BASE_URL = https://api.openweathermap.org/data/2.5;
+const API_KEY =   process.env.REACT_APP_API_KEY;
+const BASE_URL =  process.env.REACT_APP_API_URL;
 
 const WEATHER_BACKGROUNDS = {
   Clear: require('../src/assets/videos/clear.mp4'),
